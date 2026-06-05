@@ -16,6 +16,12 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!phone.trim()) { setError('请输入手机号'); return }
+    if (!/^1[3-9]\d{9}$/.test(phone.trim())) { setError('手机号格式不正确'); return }
+    if (!password.trim()) { setError('请输入密码'); return }
+    if (isRegister && !name.trim()) { setError('请输入姓名'); return }
+
     setLoading(true)
 
     try {

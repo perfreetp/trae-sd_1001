@@ -87,6 +87,10 @@ export default function RouteDetail() {
       return
     }
     const schedule = schedules.find(s => s.id === selectedSchedule)
+    if (!schedule || schedule.available_seats <= 0) {
+      alert('该班次已满，请选择其他时段')
+      return
+    }
     setBooking({
       routeId: Number(id),
       packageId: selectedPackage,
@@ -226,23 +230,34 @@ export default function RouteDetail() {
           <div className="bg-white rounded-3xl p-6 shadow-sm animate-fade-in-up">
             <h2 className="font-serif-sc text-xl font-bold text-deep mb-4">选择时段</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {dateSchedules.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => { setSelectedSchedule(s.id); setSelectedSeat('') }}
-                  className={`p-3 rounded-2xl border-2 text-center transition-all ${
-                    selectedSchedule === s.id ? 'border-sky-start bg-sky-50' : 'border-gray-100 hover:border-gray-200'
-                  }`}
-                >
-                  <p className="font-medium text-deep text-sm">{s.time_slot}</p>
-                  <p className="text-xs text-rock mt-1">余{s.available_seats}座</p>
-                </button>
-              ))}
+              {dateSchedules.map((s) => {
+                const isFull = s.available_seats <= 0
+                return (
+                  <button
+                    key={s.id}
+                    disabled={isFull}
+                    onClick={() => { setSelectedSchedule(s.id); setSelectedSeat('') }}
+                    className={`p-3 rounded-2xl border-2 text-center transition-all ${
+                      selectedSchedule === s.id ? 'border-sky-start bg-sky-50' :
+                      isFull ? 'border-gray-100 bg-gray-50 cursor-not-allowed' :
+                      'border-gray-100 hover:border-gray-200'
+                    }`}
+                  >
+                    <p className={`font-medium text-sm ${isFull ? 'text-gray-400' : 'text-deep'}`}>{s.time_slot}</p>
+                    <p className={`text-xs mt-1 ${isFull ? 'text-red-400 font-semibold' : 'text-rock'}`}>
+                      {isFull ? '已满' : `余${s.available_seats}座`}
+                    </p>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
 
-        {selectedSchedule && seats.length > 0 && (
+        {selectedSchedule && (() => {
+          const sched = schedules.find(s => s.id === selectedSchedule)
+          if (!sched || sched.available_seats <= 0) return null
+          return seats.length > 0 ? (
           <div className="bg-white rounded-3xl p-6 shadow-sm animate-fade-in-up">
             <h2 className="font-serif-sc text-xl font-bold text-deep mb-4">选择座位</h2>
             <div className="flex justify-center">
@@ -270,7 +285,8 @@ export default function RouteDetail() {
               </div>
             </div>
           </div>
-        )}
+          ) : null
+        })()}
 
         {route.reviews?.length > 0 && (
           <div className="bg-white rounded-3xl p-6 shadow-sm">
@@ -308,7 +324,7 @@ export default function RouteDetail() {
             </div>
             <button
               onClick={handleBooking}
-              disabled={!selectedPackage || !selectedSchedule || !selectedSeat}
+              disabled={!selectedPackage || !selectedSchedule || !selectedSeat || (() => { const s = schedules.find(sc => sc.id === selectedSchedule); return !s || s.available_seats <= 0 })()}
               className="px-8 py-3 rounded-2xl gradient-sky text-white font-semibold shadow-lg shadow-sky-200 hover:shadow-sky-300 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               立即预约 <ChevronRight className="w-5 h-5" />

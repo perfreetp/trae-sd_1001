@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import { getDb } from '../database.js'
-import { authMiddleware } from './auth.js'
+import { authMiddleware, adminMiddleware } from './auth.js'
 
 const router = Router()
 
@@ -53,6 +53,54 @@ router.get('/chat/history', authMiddleware, (req: Request, res: Response): void 
     res.json({ success: true, data: messages })
   } catch (error) {
     res.status(500).json({ success: false, error: '获取聊天记录失败' })
+  }
+})
+
+router.get('/admin/chats', authMiddleware, adminMiddleware, (req: Request, res: Response): void => {
+  try {
+    const db = getDb()
+    const users = db.prepare(`
+      SELECT u.id, u.name, u.phone,
+        (SELECT COUNT(*) FROM chat_messages WHERE user_id = u.id AND sender = 'user') as msg_count,
+        (SELECT created_at FROM chat_messages WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) as last_msg_time
+      FROM users u
+      WHERE u.id IN (SELECT DISTINCT user_id FROM chat_messages)
+      ORDER BY last_msg_time DESC
+    `).all()
+    res.json({ success: true, data: users })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取聊天列表失败' })
+  }
+})
+
+router.get('/admin/chats/:userId', authMiddleware, adminMiddleware, (req: Request, res: Response): void => {
+  try {
+    const db = getDb()
+    const messages = db.prepare(`
+      SELECT cm.*, u.name as user_name, u.phone as user_phone
+      FROM chat_messages cm
+      JOIN users u ON cm.user_id = u.id
+      WHERE cm.user_id = ?
+      ORDER BY cm.created_at ASC
+    `).all(req.params.userId)
+    res.json({ success: true, data: messages })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取聊天记录失败' })
+  }
+})
+
+router.post('/admin/reply', authMiddleware, adminMiddleware, (req: Request, res: Response): void => {
+  try {
+    const db = getDb()
+    const { user_id, content } = req.body
+    if (!user_id || !content) {
+      res.status(400).json({ success: false, error: '参数不完整' })
+      return
+    }
+    db.prepare('INSERT INTO chat_messages (user_id, content, sender) VALUES (?, ?, ?)').run(user_id, content, 'admin')
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '回复失败' })
   }
 })
 

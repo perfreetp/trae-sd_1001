@@ -21,6 +21,7 @@ interface Order {
   created_at: string
   departure_point?: string
   departure_coords?: string
+  reviewed?: boolean
 }
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -49,7 +50,19 @@ export default function Orders() {
   const loadOrders = async () => {
     const status = filter === 'all' ? '' : `?status=${filter}`
     const res = await apiFetch(`/api/orders${status}`)
-    if (res.success && res.data) setOrders(res.data)
+    if (res.success && res.data) {
+      const ordersWithReview = await Promise.all(
+        res.data.map(async (o: Order) => {
+          try {
+            const revRes = await apiFetch(`/api/reviews/order/${o.id}`)
+            return { ...o, reviewed: !!(revRes.success && revRes.data) }
+          } catch {
+            return { ...o, reviewed: false }
+          }
+        })
+      )
+      setOrders(ordersWithReview)
+    }
   }
 
   const handleReschedule = async (orderId: number, scheduleId: number, seatNo: string) => {
@@ -145,15 +158,20 @@ export default function Orders() {
                             </button>
                           </>
                         )}
-                        {order.status === 'paid' && (
+                        {order.status === 'paid' && !order.reviewed && (
                           <button onClick={() => navigate(`/review/${order.id}`)} className="px-3 py-1.5 rounded-lg bg-green-50 text-green-600 text-xs font-medium hover:bg-green-100 transition">
                             评价
                           </button>
                         )}
-                        {order.status === 'completed' && (
+                        {order.status === 'completed' && !order.reviewed && (
                           <button onClick={() => navigate(`/review/${order.id}`)} className="px-3 py-1.5 rounded-lg bg-green-50 text-green-600 text-xs font-medium hover:bg-green-100 transition">
                             评价/领取照片
                           </button>
+                        )}
+                        {order.reviewed && (
+                          <span className="px-3 py-1.5 rounded-lg bg-gray-50 text-gray-400 text-xs font-medium">
+                            已评价
+                          </span>
                         )}
                         {(order.status === 'paid' || order.status === 'completed') && (
                           <button

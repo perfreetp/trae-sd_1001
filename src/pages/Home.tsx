@@ -69,6 +69,20 @@ export default function Home() {
     })
   }, [])
 
+  const [weatherLoading, setWeatherLoading] = useState(false)
+
+  const refreshWeather = async () => {
+    setWeatherLoading(true)
+    const el = document.getElementById('weather')
+    el?.scrollIntoView({ behavior: 'smooth' })
+    try {
+      const res = await apiFetch('/api/weather')
+      if (res.success && res.data) setWeather(res.data)
+    } finally {
+      setTimeout(() => setWeatherLoading(false), 500)
+    }
+  }
+
   const handleClaimCoupon = async (couponId: number) => {
     if (!user) {
       navigate('/login')
@@ -122,13 +136,11 @@ export default function Home() {
                 立即预约 <ArrowRight className="w-5 h-5" />
               </button>
               <button
-                onClick={() => {
-                  const el = document.getElementById('weather')
-                  el?.scrollIntoView({ behavior: 'smooth' })
-                }}
-                className="px-8 py-3.5 rounded-2xl bg-white/20 backdrop-blur-sm text-white font-medium hover:bg-white/30 transition-all"
+                onClick={refreshWeather}
+                disabled={weatherLoading}
+                className="px-8 py-3.5 rounded-2xl bg-white/20 backdrop-blur-sm text-white font-medium hover:bg-white/30 transition-all flex items-center gap-2 disabled:opacity-70"
               >
-                查看天气
+                {weatherLoading ? '刷新中...' : '查看天气'}
               </button>
             </div>
           </div>
@@ -136,11 +148,12 @@ export default function Home() {
       </div>
 
       <div id="weather" className="max-w-7xl mx-auto px-4 sm:px-6 -mt-12 relative z-20">
-        <div className="glass-card rounded-3xl p-6 shadow-xl">
+        <div className={`glass-card rounded-3xl p-6 shadow-xl transition-opacity ${weatherLoading ? 'opacity-70' : ''}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-3 h-3 rounded-full ${weather?.isFlyable ? 'bg-green-500 animate-pulse-glow' : 'bg-red-500'}`} />
             <span className="font-semibold text-deep">{weather?.isFlyable ? '适飞条件良好' : '暂不适飞'}</span>
             <span className="text-sm text-rock">{weather?.remark}</span>
+            {weatherLoading && <span className="text-xs text-sky-start ml-auto">刷新中...</span>}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="flex items-center gap-3">

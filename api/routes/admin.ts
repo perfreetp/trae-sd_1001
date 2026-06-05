@@ -189,6 +189,26 @@ router.put('/orders/:id', authMiddleware, adminMiddleware, (req: Request, res: R
   }
 })
 
+router.post('/photos', authMiddleware, adminMiddleware, (req: Request, res: Response): void => {
+  try {
+    const db = getDb()
+    const { order_id, url } = req.body
+    if (!order_id || !url) {
+      res.status(400).json({ success: false, error: '订单ID和照片URL不能为空' })
+      return
+    }
+    const order = db.prepare('SELECT id FROM orders WHERE id = ?').get(order_id)
+    if (!order) {
+      res.status(404).json({ success: false, error: '订单不存在' })
+      return
+    }
+    db.prepare('INSERT INTO photos (order_id, url) VALUES (?, ?)').run(order_id, url)
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '上传照片失败' })
+  }
+})
+
 router.get('/statistics', authMiddleware, adminMiddleware, (req: Request, res: Response): void => {
   try {
     const db = getDb()

@@ -60,13 +60,13 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             {user ? (
               <>
-                {user.role !== 'admin' && (
+                {user.role === 'admin' && !isAdmin && (
                   <Link to="/admin/schedule" className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs text-rock hover:text-deep hover:bg-gray-50 transition">
                     <LayoutDashboard className="w-3.5 h-3.5" />
                     管理后台
                   </Link>
                 )}
-                {user.role === 'admin' && (
+                {user.role === 'admin' && isAdmin && (
                   <Link to="/" className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs text-rock hover:text-deep hover:bg-gray-50 transition">
                     游客端
                   </Link>

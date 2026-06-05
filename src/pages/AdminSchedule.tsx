@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { Plus, Calendar, Wind, AlertTriangle, CheckCircle, XCircle, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Plus, Calendar, Wind, AlertTriangle, CheckCircle, XCircle, ChevronLeft, ChevronRight, Eye, MessageCircle, Send } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
 import { apiFetch, useAppStore } from '@/store/useAppStore'
 
 interface Schedule {
@@ -44,11 +44,18 @@ export default function AdminSchedule() {
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [routes, setRoutes] = useState<Route[]>([])
   const [orders, setOrders] = useState<AdminOrder[]>([])
-  const [activeTab, setActiveTab] = useState<'schedule' | 'orders'>('schedule')
+  const [activeTab, setActiveTab] = useState<'schedule' | 'orders' | 'chats'>('schedule')
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
   const [selectedRoute, setSelectedRoute] = useState<number | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [orderFilter, setOrderFilter] = useState('')
+  const [chatUsers, setChatUsers] = useState<any[]>([])
+  const [selectedChatUser, setSelectedChatUser] = useState<number | null>(null)
+  const [chatMessages, setChatMessages] = useState<any[]>([])
+  const [chatReply, setChatReply] = useState('')
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const [showPhotoUpload, setShowPhotoUpload] = useState<number | null>(null)
+  const [photoUrl, setPhotoUrl] = useState('')
 
   useEffect(() => {
     if (!token) { navigate('/login'); return }
@@ -128,6 +135,52 @@ export default function AdminSchedule() {
     ? orders.filter(o => o.status === orderFilter)
     : orders
 
+  const loadChatUsers = async () => {
+    const res = await apiFetch('/api/chat/admin/chats')
+    if (res.success && res.data) setChatUsers(res.data)
+  }
+
+  const loadChatMessages = async (userId: number) => {
+    setSelectedChatUser(userId)
+    const res = await apiFetch(`/api/chat/admin/chats/${userId}`)
+    if (res.success && res.data) setChatMessages(res.data)
+  }
+
+  const handleAdminReply = async () => {
+    if (!chatReply.trim() || !selectedChatUser) return
+    const res = await apiFetch('/api/chat/admin/reply', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: selectedChatUser, content: chatReply.trim() }),
+    })
+    if (res.success) {
+      setChatReply('')
+      loadChatMessages(selectedChatUser)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'chats') loadChatUsers()
+  }, [activeTab])
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
+
+  const handleUploadPhoto = async () => {
+    if (!showPhotoUpload || !photoUrl.trim()) return
+    const res = await apiFetch('/api/admin/photos', {
+      method: 'POST',
+      body: JSON.stringify({ order_id: showPhotoUpload, url: photoUrl.trim() }),
+    })
+    if (res.success) {
+      setShowPhotoUpload(null)
+      setPhotoUrl('')
+      alert('照片已关联到订单！')
+    } else {
+      alert(res.error || '上传失败')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-cloud pt-20">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -144,6 +197,9 @@ export default function AdminSchedule() {
           </button>
           <button onClick={() => setActiveTab('orders')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === 'orders' ? 'gradient-sky text-white shadow-lg shadow-sky-200' : 'bg-white text-rock'}`}>
             订单管理
+          </button>
+          <button onClick={() => setActiveTab('chats')} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === 'chats' ? 'gradient-sky text-white shadow-lg shadow-sky-200' : 'bg-white text-rock'}`}>
+            <MessageCircle className="w-4 h-4 inline mr-1" /> 客服消息
           </button>
         </div>
 
@@ -275,6 +331,9 @@ export default function AdminSchedule() {
                           {o.status === 'pending' && (
                             <button onClick={() => handleOrderAction(o.id, 'cancelled')} className="text-red-500 text-xs">取消</button>
                           )}
+                          {(o.status === 'paid' || o.status === 'completed') && (
+                            <button onClick={() => { setShowPhotoUpload(o.id); setPhotoUrl('') }} className="text-sky-600 hover:text-sky-700 text-xs ml-2">上传照片</button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -284,7 +343,111 @@ export default function AdminSchedule() {
             </div>
           </>
         )}
+
+        {activeTab === 'chats' && (
+          <div className="flex gap-6" style={{ minHeight: '500px' }}>
+            <div className="w-64 bg-white rounded-3xl shadow-sm overflow-hidden flex-shrink-0">
+              <div className="p-4 border-b border-gray-100">
+                <h3 className="font-semibold text-deep text-sm">咨询用户</h3>
+              </div>
+              <div className="overflow-y-auto" style={{ maxHeight: '500px' }}>
+                {chatUsers.length === 0 ? (
+                  <p className="text-center text-rock text-sm py-8">暂无咨询</p>
+                ) : chatUsers.map((u: any) => (
+                  <button
+                    key={u.id}
+                    onClick={() => loadChatMessages(u.id)}
+                    className={`w-full text-left p-4 border-b border-gray-50 hover:bg-sky-50/50 transition ${selectedChatUser === u.id ? 'bg-sky-50' : ''}`}
+                  >
+                    <p className="font-medium text-deep text-sm">{u.name || u.phone}</p>
+                    <p className="text-xs text-rock mt-0.5">{u.phone}</p>
+                    <p className="text-xs text-rock/60 mt-1">{u.msg_count}条消息 · {u.last_msg_time?.slice(5, 16)}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 bg-white rounded-3xl shadow-sm overflow-hidden flex flex-col">
+              {selectedChatUser ? (
+                <>
+                  <div className="p-4 border-b border-gray-100">
+                    <h3 className="font-semibold text-deep">与 {chatMessages[0]?.user_name || chatMessages[0]?.user_phone || '游客'} 的对话</h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ maxHeight: '380px' }}>
+                    {chatMessages.map((msg: any) => (
+                      <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-start' : 'justify-end'}`}>
+                        <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${
+                          msg.sender === 'user'
+                            ? 'bg-gray-100 text-deep rounded-bl-md'
+                            : msg.sender === 'admin'
+                            ? 'gradient-sky text-white rounded-br-md'
+                            : 'bg-amber-50 text-amber-700 rounded-br-md'
+                        }`}>
+                          <p>{msg.content}</p>
+                          <p className={`text-xs mt-1 ${msg.sender === 'admin' ? 'text-white/70' : 'text-rock/50'}`}>
+                            {msg.sender === 'admin' ? '管理员' : msg.sender === 'bot' ? '自动回复' : '游客'} · {msg.created_at?.slice(11, 16)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={chatEndRef} />
+                  </div>
+                  <div className="p-4 border-t border-gray-100">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={chatReply}
+                        onChange={(e) => setChatReply(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAdminReply()}
+                        placeholder="输入回复内容..."
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 focus:border-sky-start focus:ring-2 focus:ring-sky-100 outline-none transition text-sm"
+                      />
+                      <button
+                        onClick={handleAdminReply}
+                        disabled={!chatReply.trim()}
+                        className="px-4 py-2.5 rounded-xl gradient-sky text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-rock">选择左侧用户查看对话</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
+
+      {showPhotoUpload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowPhotoUpload(null)}>
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-serif-sc text-lg font-bold text-deep mb-4">上传飞行照片</h3>
+            <p className="text-sm text-rock mb-4">为订单 #{showPhotoUpload} 关联照片</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-rock mb-1">照片URL</label>
+                <input
+                  type="text"
+                  value={photoUrl}
+                  onChange={(e) => setPhotoUrl(e.target.value)}
+                  placeholder="输入照片链接地址"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-sky-start"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowPhotoUpload(null)} className="flex-1 py-3 rounded-xl border border-gray-200 text-rock font-medium hover:bg-gray-50 transition">取消</button>
+              <button onClick={handleUploadPhoto} disabled={!photoUrl.trim()} className="flex-1 py-3 rounded-xl gradient-sky text-white font-medium shadow-lg shadow-sky-200 transition hover:scale-[1.02] disabled:opacity-50">确认上传</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowAddForm(false)}>

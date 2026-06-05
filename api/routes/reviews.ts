@@ -47,4 +47,14 @@ router.get('/photos/:orderId', authMiddleware, (req: Request, res: Response): vo
   }
 })
 
+router.get('/order/:orderId', authMiddleware, (req: Request, res: Response): void => {
+  try {
+    const db = getDb()
+    const review = db.prepare('SELECT * FROM reviews WHERE order_id = ?').get(req.params.orderId)
+    res.json({ success: true, data: review || null })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取评价状态失败' })
+  }
+})
+
 export default router

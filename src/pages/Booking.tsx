@@ -35,6 +35,21 @@ export default function Booking() {
   const [safetyScrolled, setSafetyScrolled] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [orderNo, setOrderNo] = useState('')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const validate = (): boolean => {
+    const e: Record<string, string> = {}
+    if (!name.trim()) e.name = '请输入姓名'
+    else if (name.trim().length < 2) e.name = '姓名至少2个字符'
+    if (!idCard.trim()) e.idCard = '请输入身份证号'
+    else if (!/^\d{17}[\dXx]$/.test(idCard.trim())) e.idCard = '身份证号格式不正确'
+    if (!phone.trim()) e.phone = '请输入手机号'
+    else if (!/^1[3-9]\d{9}$/.test(phone.trim())) e.phone = '手机号格式不正确'
+    if (!booking.seatNo) e.seat = '未选择座位'
+    if (!booking.scheduleId) e.schedule = '未选择班次'
+    setErrors(e)
+    return Object.keys(e).length === 0
+  }
 
   useEffect(() => {
     if (!token) { navigate('/login'); return }
@@ -67,7 +82,7 @@ export default function Booking() {
   const finalPrice = Math.max(0, originalPrice - discountAmount)
 
   const handleSubmit = async () => {
-    if (!name || !idCard || !phone) { alert('请填写完整的实名信息'); return }
+    if (!validate()) return
     if (!safetyConfirmed) { alert('请确认安全须知'); return }
     if (!pkg) return
 
@@ -146,15 +161,18 @@ export default function Booking() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-rock mb-1">姓名 <span className="text-red-400">*</span></label>
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="请输入真实姓名（需与证件一致）" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-start focus:ring-2 focus:ring-sky-100 outline-none transition text-sm" />
+                <input type="text" value={name} onChange={(e) => { setName(e.target.value); if (errors.name) setErrors({...errors, name: ''}) }} placeholder="请输入真实姓名（需与证件一致）" className={`w-full px-4 py-3 rounded-xl border ${errors.name ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:border-sky-start focus:ring-2 focus:ring-sky-100'} outline-none transition text-sm`} />
+                {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
               </div>
               <div>
                 <label className="block text-sm text-rock mb-1">身份证号 <span className="text-red-400">*</span></label>
-                <input type="text" value={idCard} onChange={(e) => setIdCard(e.target.value)} placeholder="请输入身份证号码" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-start focus:ring-2 focus:ring-sky-100 outline-none transition text-sm" />
+                <input type="text" value={idCard} onChange={(e) => { setIdCard(e.target.value); if (errors.idCard) setErrors({...errors, idCard: ''}) }} placeholder="请输入身份证号码" className={`w-full px-4 py-3 rounded-xl border ${errors.idCard ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:border-sky-start focus:ring-2 focus:ring-sky-100'} outline-none transition text-sm`} />
+                {errors.idCard && <p className="text-xs text-red-500 mt-1">{errors.idCard}</p>}
               </div>
               <div>
                 <label className="block text-sm text-rock mb-1">联系电话 <span className="text-red-400">*</span></label>
-                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="请输入手机号" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-start focus:ring-2 focus:ring-sky-100 outline-none transition text-sm" />
+                <input type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); if (errors.phone) setErrors({...errors, phone: ''}) }} placeholder="请输入手机号" className={`w-full px-4 py-3 rounded-xl border ${errors.phone ? 'border-red-400 focus:ring-red-100' : 'border-gray-200 focus:border-sky-start focus:ring-2 focus:ring-sky-100'} outline-none transition text-sm`} />
+                {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
               </div>
               <div>
                 <label className="block text-sm text-rock mb-1">体重（kg）</label>

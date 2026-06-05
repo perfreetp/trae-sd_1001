@@ -62,6 +62,14 @@ export default function Review() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
+  useEffect(() => {
+    if (activeTab === 'photos' && orderId && orderId !== '0') {
+      apiFetch(`/api/reviews/photos/${orderId}`).then((res) => {
+        if (res.success && res.data) setPhotos(res.data)
+      })
+    }
+  }, [activeTab, orderId])
+
   const handleSubmitReview = async () => {
     if (!content.trim()) { alert('请输入评价内容'); return }
     const oid = orderId && orderId !== '0' ? Number(orderId) : null
@@ -98,6 +106,15 @@ export default function Review() {
     }
   }
 
+  const refreshChatHistory = async () => {
+    const res = await apiFetch('/api/chat/history')
+    if (res.success && res.data) setChatMessages(res.data)
+  }
+
+  useEffect(() => {
+    if (activeTab === 'chat' && user) refreshChatHistory()
+  }, [activeTab, user])
+
   return (
     <div className="min-h-screen bg-cloud pt-20">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
@@ -123,7 +140,16 @@ export default function Review() {
 
         {activeTab === 'review' && (
           <div className="bg-white rounded-3xl p-6 shadow-sm animate-fade-in-up">
-            {reviewSubmitted ? (
+            {!orderId || orderId === '0' || !orderInfo ? (
+              <div className="text-center py-8">
+                <Star className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="font-semibold text-deep mb-2">请从订单进入评价</h3>
+                <p className="text-rock text-sm mb-4">评价需要关联具体订单，请前往订单列表选择要评价的订单</p>
+                <button onClick={() => navigate('/orders')} className="px-6 py-2 rounded-xl gradient-sky text-white text-sm font-medium shadow-lg shadow-sky-200">
+                  查看我的订单
+                </button>
+              </div>
+            ) : reviewSubmitted ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
                   <Star className="w-8 h-8 text-gold fill-gold" />
@@ -220,9 +246,12 @@ export default function Review() {
                   <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm ${
                     msg.sender === 'user'
                       ? 'gradient-sky text-white rounded-br-md'
+                      : msg.sender === 'admin'
+                      ? 'bg-green-50 text-green-800 rounded-bl-md'
                       : 'bg-gray-100 text-deep rounded-bl-md'
                   }`}>
                     {msg.content}
+                    {msg.sender === 'admin' && <p className="text-xs text-green-600 mt-1">管理员回复</p>}
                   </div>
                 </div>
               ))}
