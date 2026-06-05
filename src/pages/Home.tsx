@@ -58,9 +58,6 @@ export default function Home() {
     }
     init()
 
-    apiFetch('/api/weather').then((res) => {
-      if (res.success && res.data) setWeather(res.data)
-    })
     apiFetch('/api/routes').then((res) => {
       if (res.success && res.data) setRoutes(res.data)
     })
@@ -70,11 +67,11 @@ export default function Home() {
   }, [])
 
   const [weatherLoading, setWeatherLoading] = useState(false)
+  const [weatherVisible, setWeatherVisible] = useState(false)
 
   const refreshWeather = async () => {
     setWeatherLoading(true)
-    const el = document.getElementById('weather')
-    el?.scrollIntoView({ behavior: 'smooth' })
+    setWeatherVisible(true)
     try {
       const res = await apiFetch('/api/weather')
       if (res.success && res.data) setWeather(res.data)
@@ -116,7 +113,7 @@ export default function Home() {
           <div className="animate-fade-in-up">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/20 backdrop-blur-sm rounded-full text-white/90 text-sm mb-6">
               <CloudSun className="w-4 h-4" />
-              <span>{weather?.isFlyable ? '今日适飞 ✈️' : '今日暂不适飞'}</span>
+              <span>{weatherVisible ? (weather?.isFlyable ? '今日适飞 ✈️' : '今日暂不适飞') : '低空游览预约平台'}</span>
             </div>
             <h1 className="font-serif-sc text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight">
               云端漫步<br />
@@ -147,7 +144,8 @@ export default function Home() {
         </div>
       </div>
 
-      <div id="weather" className="max-w-7xl mx-auto px-4 sm:px-6 -mt-12 relative z-20">
+      {weatherVisible && (
+      <div id="weather" className="max-w-7xl mx-auto px-4 sm:px-6 -mt-12 relative z-20 animate-fade-in-up">
         <div className={`glass-card rounded-3xl p-6 shadow-xl transition-opacity ${weatherLoading ? 'opacity-70' : ''}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-3 h-3 rounded-full ${weather?.isFlyable ? 'bg-green-500 animate-pulse-glow' : 'bg-red-500'}`} />
@@ -195,6 +193,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+      )}
 
       <div id="routes" className="max-w-7xl mx-auto px-4 sm:px-6 py-16">
         <div className="flex items-end justify-between mb-8">

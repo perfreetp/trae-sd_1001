@@ -22,10 +22,13 @@ interface AppState {
   user: User | null
   token: string | null
   booking: BookingState
+  chatMessages: any[]
   setUser: (user: User | null) => void
   setToken: (token: string | null) => void
   setBooking: (booking: Partial<BookingState>) => void
   resetBooking: () => void
+  setChatMessages: (messages: any[]) => void
+  addChatMessage: (message: any) => void
   logout: () => void
 }
 
@@ -43,6 +46,7 @@ export const useAppStore = create<AppState>((set) => ({
   user: null,
   token: localStorage.getItem('skyview_token'),
   booking: { ...emptyBooking },
+  chatMessages: [],
   setUser: (user) => set({ user }),
   setToken: (token) => {
     if (token) localStorage.setItem('skyview_token', token)
@@ -51,9 +55,11 @@ export const useAppStore = create<AppState>((set) => ({
   },
   setBooking: (booking) => set((state) => ({ booking: { ...state.booking, ...booking } })),
   resetBooking: () => set({ booking: { ...emptyBooking } }),
+  setChatMessages: (messages) => set({ chatMessages: messages }),
+  addChatMessage: (message) => set((state) => ({ chatMessages: [...state.chatMessages, message] })),
   logout: () => {
     localStorage.removeItem('skyview_token')
-    set({ user: null, token: null })
+    set({ user: null, token: null, chatMessages: [] })
   },
 }))
 

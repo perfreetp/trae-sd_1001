@@ -10,10 +10,29 @@ router.post('/', authMiddleware, (req: Request, res: Response): void => {
     const userId = (req as any).user.userId
     const { order_id, route_id, rating, content, images } = req.body
 
+    if (!order_id) {
+      res.status(400).json({ success: false, error: '缺少订单ID' })
+      return
+    }
+
+    const order = db.prepare('SELECT status FROM orders WHERE id = ? AND user_id = ?').get(order_id, userId) as any
+    if (!order) {
+      res.status(404).json({ success: false, error: '订单不存在' })
+      return
+    }
+    if (order.status !== 'completed') {
+      res.status(400).json({ success: false, error: '只有已完成飞行的订单才能评价' })
+      return
+    }
+
+    const existingReview = db.prepare('SELECT id FROM reviews WHERE order_id = ?').get(order_id)
+    if (existingReview) {
+      res.status(400).json({ success: false, error: '该订单已评价' })
+      return
+    }
+
     db.prepare('INSERT INTO reviews (order_id, user_id, route_id, rating, content, images) VALUES (?, ?, ?, ?, ?, ?)')
       .run(order_id, userId, route_id, rating, content || '', images || '')
-
-    db.prepare("UPDATE orders SET status = 'completed' WHERE id = ?").run(order_id)
 
     res.json({ success: true })
   } catch (error) {

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { QrCode, Navigation, Calendar, Clock, RefreshCw, XCircle, ChevronRight, MapPin, Plane } from 'lucide-react'
+import { QrCode, Navigation, Calendar, Clock, RefreshCw, XCircle, ChevronRight, MapPin, Plane, Star } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { apiFetch, useAppStore } from '@/store/useAppStore'
 
@@ -22,6 +22,7 @@ interface Order {
   departure_point?: string
   departure_coords?: string
   reviewed?: boolean
+  reviewData?: { rating: number; content: string } | null
 }
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -55,9 +56,10 @@ export default function Orders() {
         res.data.map(async (o: Order) => {
           try {
             const revRes = await apiFetch(`/api/reviews/order/${o.id}`)
-            return { ...o, reviewed: !!(revRes.success && revRes.data) }
+            const reviewData = (revRes.success && revRes.data) ? revRes.data : null
+            return { ...o, reviewed: !!reviewData, reviewData }
           } catch {
-            return { ...o, reviewed: false }
+            return { ...o, reviewed: false, reviewData: null }
           }
         })
       )
@@ -158,20 +160,23 @@ export default function Orders() {
                             </button>
                           </>
                         )}
-                        {order.status === 'paid' && !order.reviewed && (
-                          <button onClick={() => navigate(`/review/${order.id}`)} className="px-3 py-1.5 rounded-lg bg-green-50 text-green-600 text-xs font-medium hover:bg-green-100 transition">
-                            评价
-                          </button>
-                        )}
                         {order.status === 'completed' && !order.reviewed && (
                           <button onClick={() => navigate(`/review/${order.id}`)} className="px-3 py-1.5 rounded-lg bg-green-50 text-green-600 text-xs font-medium hover:bg-green-100 transition">
                             评价/领取照片
                           </button>
                         )}
-                        {order.reviewed && (
-                          <span className="px-3 py-1.5 rounded-lg bg-gray-50 text-gray-400 text-xs font-medium">
-                            已评价
-                          </span>
+                        {order.status === 'completed' && order.reviewed && (
+                          <div className="mt-3 p-3 bg-amber-50/50 rounded-xl">
+                            <div className="flex items-center gap-1 mb-1">
+                              {[1,2,3,4,5].map(s => (
+                                <Star key={s} className={`w-3.5 h-3.5 ${s <= (order.reviewData?.rating || 0) ? 'text-gold fill-gold' : 'text-gray-200'}`} />
+                              ))}
+                              <span className="text-xs text-rock ml-1">已评价</span>
+                            </div>
+                            {order.reviewData?.content && (
+                              <p className="text-xs text-rock line-clamp-2">{order.reviewData.content}</p>
+                            )}
+                          </div>
                         )}
                         {(order.status === 'paid' || order.status === 'completed') && (
                           <button

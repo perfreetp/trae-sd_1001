@@ -55,7 +55,8 @@ export default function AdminSchedule() {
   const [chatReply, setChatReply] = useState('')
   const chatEndRef = useRef<HTMLDivElement>(null)
   const [showPhotoUpload, setShowPhotoUpload] = useState<number | null>(null)
-  const [photoUrl, setPhotoUrl] = useState('')
+  const [photoFiles, setPhotoFiles] = useState<FileList | null>(null)
+  const [uploadingPhotos, setUploadingPhotos] = useState(false)
 
   useEffect(() => {
     if (!token) { navigate('/login'); return }
@@ -166,18 +167,35 @@ export default function AdminSchedule() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const handleUploadPhoto = async () => {
-    if (!showPhotoUpload || !photoUrl.trim()) return
-    const res = await apiFetch('/api/admin/photos', {
-      method: 'POST',
-      body: JSON.stringify({ order_id: showPhotoUpload, url: photoUrl.trim() }),
-    })
-    if (res.success) {
-      setShowPhotoUpload(null)
-      setPhotoUrl('')
-      alert('照片已关联到订单！')
-    } else {
-      alert(res.error || '上传失败')
+    if (!showPhotoUpload || !photoFiles || photoFiles.length === 0) return
+    setUploadingPhotos(true)
+    const formData = new FormData()
+    formData.append('order_id', String(showPhotoUpload))
+    for (let i = 0; i < photoFiles.length; i++) {
+      formData.append('photos', photoFiles[i])
+    }
+    try {
+      const token = localStorage.getItem('skyview_token')
+      const res = await fetch('/api/admin/photos/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.success) {
+        setShowPhotoUpload(null)
+        setPhotoFiles(null)
+        alert(`成功上传${data.data.count}张照片！`)
+      } else {
+        alert(data.error || '上传失败')
+      }
+    } catch {
+      alert('上传失败')
+    } finally {
+      setUploadingPhotos(false)
     }
   }
 
@@ -331,8 +349,8 @@ export default function AdminSchedule() {
                           {o.status === 'pending' && (
                             <button onClick={() => handleOrderAction(o.id, 'cancelled')} className="text-red-500 text-xs">取消</button>
                           )}
-                          {(o.status === 'paid' || o.status === 'completed') && (
-                            <button onClick={() => { setShowPhotoUpload(o.id); setPhotoUrl('') }} className="text-sky-600 hover:text-sky-700 text-xs ml-2">上传照片</button>
+                          {o.status === 'completed' && (
+                            <button onClick={() => { setShowPhotoUpload(o.id); setPhotoFiles(null) }} className="text-sky-600 hover:text-sky-700 text-xs ml-2">上传照片</button>
                           )}
                         </td>
                       </tr>
@@ -428,22 +446,36 @@ export default function AdminSchedule() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowPhotoUpload(null)}>
           <div className="bg-white rounded-3xl max-w-md w-full p-6 animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-serif-sc text-lg font-bold text-deep mb-4">上传飞行照片</h3>
-            <p className="text-sm text-rock mb-4">为订单 #{showPhotoUpload} 关联照片</p>
+            <p className="text-sm text-rock mb-4">为订单 #{showPhotoUpload} 上传飞行照片</p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-rock mb-1">照片URL</label>
+                <label className="block text-sm text-rock mb-2">选择照片文件（支持多选，最多10张）</label>
                 <input
-                  type="text"
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  placeholder="输入照片链接地址"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-sky-start"
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => setPhotoFiles(e.target.files)}
+                  className="w-full text-sm text-rock file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-medium file:gradient-sky file:text-white hover:file:opacity-90"
                 />
               </div>
+              {photoFiles && photoFiles.length > 0 && (
+                <div className="bg-sky-50 rounded-xl p-3">
+                  <p className="text-xs text-sky-start font-medium">已选择 {photoFiles.length} 张照片</p>
+                  <div className="flex gap-2 mt-2 overflow-x-auto">
+                    {Array.from(photoFiles).slice(0, 5).map((f, i) => (
+                      <span key={i} className="text-xs text-rock bg-white px-2 py-1 rounded-lg truncate max-w-[120px]">{f.name}</span>
+                    ))}
+                    {photoFiles.length > 5 && <span className="text-xs text-rock">...等{photoFiles.length}张</span>}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowPhotoUpload(null)} className="flex-1 py-3 rounded-xl border border-gray-200 text-rock font-medium hover:bg-gray-50 transition">取消</button>
-              <button onClick={handleUploadPhoto} disabled={!photoUrl.trim()} className="flex-1 py-3 rounded-xl gradient-sky text-white font-medium shadow-lg shadow-sky-200 transition hover:scale-[1.02] disabled:opacity-50">确认上传</button>
+              <button onClick={handleUploadPhoto} disabled={!photoFiles || photoFiles.length === 0 || uploadingPhotos} className="flex-1 py-3 rounded-xl gradient-sky text-white font-medium shadow-lg shadow-sky-200 transition hover:scale-[1.02] disabled:opacity-50">
+                {uploadingPhotos ? '上传中...' : '确认上传'}
+              </button>
             </div>
           </div>
         </div>

@@ -24,16 +24,16 @@ interface FAQ {
 export default function Review() {
   const { orderId } = useParams()
   const navigate = useNavigate()
-  const { user, token } = useAppStore()
+  const { user, token, chatMessages, setChatMessages, addChatMessage } = useAppStore()
   const [activeTab, setActiveTab] = useState<'review' | 'photos' | 'chat'>('review')
   const [rating, setRating] = useState(5)
   const [content, setContent] = useState('')
   const [photos, setPhotos] = useState<Photo[]>([])
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [faqs, setFaqs] = useState<FAQ[]>([])
   const [orderInfo, setOrderInfo] = useState<any>(null)
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
+  const [reviewData, setReviewData] = useState<any>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -44,9 +44,11 @@ export default function Review() {
       if (res.success && res.data) setFaqs(res.data)
     })
 
-    apiFetch('/api/chat/history').then((res) => {
-      if (res.success && res.data) setChatMessages(res.data)
-    })
+    if (chatMessages.length === 0) {
+      apiFetch('/api/chat/history').then((res) => {
+        if (res.success && res.data) setChatMessages(res.data)
+      })
+    }
 
     if (orderId && orderId !== '0') {
       apiFetch(`/api/reviews/photos/${orderId}`).then((res) => {
@@ -54,6 +56,9 @@ export default function Review() {
       })
       apiFetch(`/api/orders/${orderId}`).then((res) => {
         if (res.success && res.data) setOrderInfo(res.data)
+      })
+      apiFetch(`/api/reviews/order/${orderId}`).then((res) => {
+        if (res.success && res.data) setReviewData(res.data)
       })
     }
   }, [orderId, user])
@@ -95,14 +100,14 @@ export default function Review() {
     if (!chatInput.trim()) return
     const msg = chatInput
     setChatInput('')
-    setChatMessages((prev) => [...prev, { id: Date.now(), content: msg, sender: 'user', created_at: new Date().toISOString() }])
+    addChatMessage({ id: Date.now(), content: msg, sender: 'user', created_at: new Date().toISOString() })
 
     const res = await apiFetch('/api/chat', {
       method: 'POST',
       body: JSON.stringify({ content: msg }),
     })
     if (res.success && res.data) {
-      setChatMessages((prev) => [...prev, { id: Date.now() + 1, content: res.data.reply, sender: 'bot', created_at: new Date().toISOString() }])
+      addChatMessage({ id: Date.now() + 1, content: res.data.reply, sender: 'bot', created_at: new Date().toISOString() })
     }
   }
 
@@ -149,6 +154,30 @@ export default function Review() {
                   查看我的订单
                 </button>
               </div>
+            ) : orderInfo.status !== 'completed' ? (
+              <div className="text-center py-8">
+                <Star className="w-12 h-12 text-amber-300 mx-auto mb-4" />
+                <h3 className="font-semibold text-deep mb-2">订单尚未完成飞行</h3>
+                <p className="text-rock text-sm mb-4">只有已完成飞行的订单才能进行评价，请完成飞行后再来评价</p>
+                <button onClick={() => navigate('/orders')} className="px-6 py-2 rounded-xl gradient-sky text-white text-sm font-medium shadow-lg shadow-sky-200">
+                  返回订单列表
+                </button>
+              </div>
+            ) : reviewData ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                  <Star className="w-8 h-8 text-gold fill-gold" />
+                </div>
+                <h3 className="font-serif-sc text-xl font-bold text-deep mb-3">您已评价</h3>
+                <div className="flex items-center justify-center gap-1 mb-3">
+                  {[1,2,3,4,5].map(s => (
+                    <Star key={s} className={`w-6 h-6 ${s <= reviewData.rating ? 'text-gold fill-gold' : 'text-gray-200'}`} />
+                  ))}
+                </div>
+                {reviewData.content && (
+                  <p className="text-rock text-sm max-w-md mx-auto bg-gray-50 rounded-xl p-4">{reviewData.content}</p>
+                )}
+              </div>
             ) : reviewSubmitted ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
@@ -191,16 +220,18 @@ export default function Review() {
             <h3 className="font-semibold text-deep mb-4">飞行照片</h3>
             {photos.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {photos.map((photo) => (
-                  <div key={photo.id} className="relative group rounded-2xl overflow-hidden">
-                    <img src={photo.url} alt="飞行照片" className="w-full h-40 object-cover" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center">
-                      <a href={photo.url} download className="opacity-0 group-hover:opacity-100 transition p-2 bg-white/90 rounded-full">
-                        <Download className="w-5 h-5 text-deep" />
-                      </a>
+                {photos.map((photo) => {
+                  return (
+                    <div key={photo.id} className="relative group rounded-2xl overflow-hidden">
+                      <img src={photo.url} alt="飞行照片" className="w-full h-40 object-cover" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition flex items-center justify-center">
+                        <a href={photo.url} download target="_blank" rel="noreferrer" className="opacity-0 group-hover:opacity-100 transition p-2 bg-white/90 rounded-full">
+                          <Download className="w-5 h-5 text-deep" />
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <div className="text-center py-12">

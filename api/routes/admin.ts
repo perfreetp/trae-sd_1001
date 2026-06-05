@@ -1,6 +1,24 @@
 import { Router, type Request, type Response } from 'express'
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
+import { fileURLToPath } from 'url'
 import { getDb } from '../database.js'
 import { authMiddleware, adminMiddleware } from './auth.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const uploadDir = path.join(__dirname, '..', 'uploads')
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true })
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.jpg'
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`)
+  },
+})
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } })
 
 const router = Router()
 
@@ -189,21 +207,39 @@ router.put('/orders/:id', authMiddleware, adminMiddleware, (req: Request, res: R
   }
 })
 
-router.post('/photos', authMiddleware, adminMiddleware, (req: Request, res: Response): void => {
+router.post('/photos/upload', authMiddleware, adminMiddleware, upload.array('photos', 10), (req: Request, res: Response): void => {
   try {
     const db = getDb()
-    const { order_id, url } = req.body
-    if (!order_id || !url) {
-      res.status(400).json({ success: false, error: '订单ID和照片URL不能为空' })
+    const files = req.files as Express.Multer.File[]
+    const { order_id } = req.body
+
+    if (!order_id) {
+      res.status(400).json({ success: false, error: '缺少订单ID' })
       return
     }
-    const order = db.prepare('SELECT id FROM orders WHERE id = ?').get(order_id)
+
+    const order = db.prepare('SELECT id, status FROM orders WHERE id = ?').get(order_id) as any
     if (!order) {
       res.status(404).json({ success: false, error: '订单不存在' })
       return
     }
-    db.prepare('INSERT INTO photos (order_id, url) VALUES (?, ?)').run(order_id, url)
-    res.json({ success: true })
+    if (order.status !== 'completed') {
+      res.status(400).json({ success: false, error: '只有已完成飞行的订单才能上传照片' })
+      return
+    }
+
+    if (!files || files.length === 0) {
+      res.status(400).json({ success: false, error: '请选择照片文件' })
+      return
+    }
+
+    const insertStmt = db.prepare('INSERT INTO photos (order_id, url) VALUES (?, ?)')
+    for (const file of files) {
+      const url = `/uploads/${file.filename}`
+      insertStmt.run(order_id, url)
+    }
+
+    res.json({ success: true, data: { count: files.length } })
   } catch (error) {
     res.status(500).json({ success: false, error: '上传照片失败' })
   }
