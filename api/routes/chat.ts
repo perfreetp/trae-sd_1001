@@ -14,7 +14,7 @@ router.get('/faq', (req: Request, res: Response): void => {
   }
 })
 
-router.post('/chat', authMiddleware, (req: Request, res: Response): void => {
+router.post('/', authMiddleware, (req: Request, res: Response): void => {
   try {
     const db = getDb()
     const userId = (req as any).user.userId
@@ -45,7 +45,7 @@ router.post('/chat', authMiddleware, (req: Request, res: Response): void => {
   }
 })
 
-router.get('/chat/history', authMiddleware, (req: Request, res: Response): void => {
+router.get('/history', authMiddleware, (req: Request, res: Response): void => {
   try {
     const db = getDb()
     const userId = (req as any).user.userId

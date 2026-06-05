@@ -100,14 +100,17 @@ export default function Review() {
     if (!chatInput.trim()) return
     const msg = chatInput
     setChatInput('')
-    addChatMessage({ id: Date.now(), content: msg, sender: 'user', created_at: new Date().toISOString() })
+    const tempId = Date.now()
+    addChatMessage({ id: tempId, content: msg, sender: 'user', created_at: new Date().toISOString() })
 
     const res = await apiFetch('/api/chat', {
       method: 'POST',
       body: JSON.stringify({ content: msg }),
     })
     if (res.success && res.data) {
-      addChatMessage({ id: Date.now() + 1, content: res.data.reply, sender: 'bot', created_at: new Date().toISOString() })
+      addChatMessage({ id: tempId + 1, content: res.data.reply, sender: 'bot', created_at: new Date().toISOString() })
+    } else {
+      alert(res.error || '发送失败，请重试')
     }
   }
 

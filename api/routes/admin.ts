@@ -207,6 +207,16 @@ router.put('/orders/:id', authMiddleware, adminMiddleware, (req: Request, res: R
   }
 })
 
+router.get('/photos/:orderId', authMiddleware, adminMiddleware, (req: Request, res: Response): void => {
+  try {
+    const db = getDb()
+    const photos = db.prepare('SELECT * FROM photos WHERE order_id = ?').all(req.params.orderId)
+    res.json({ success: true, data: photos })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取照片失败' })
+  }
+})
+
 router.post('/photos/upload', authMiddleware, adminMiddleware, upload.array('photos', 10), (req: Request, res: Response): void => {
   try {
     const db = getDb()

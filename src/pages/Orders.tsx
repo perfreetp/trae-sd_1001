@@ -178,7 +178,7 @@ export default function Orders() {
                             )}
                           </div>
                         )}
-                        {(order.status === 'paid' || order.status === 'completed') && (
+                        {order.status === 'paid' && (
                           <button
                             onClick={() => {
                               const point = order.departure_point || '景区集合点'

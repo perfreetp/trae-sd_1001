@@ -57,6 +57,8 @@ export default function AdminSchedule() {
   const [showPhotoUpload, setShowPhotoUpload] = useState<number | null>(null)
   const [photoFiles, setPhotoFiles] = useState<FileList | null>(null)
   const [uploadingPhotos, setUploadingPhotos] = useState(false)
+  const [orderPhotos, setOrderPhotos] = useState<Record<number, any[]>>({})
+  const [viewingPhotos, setViewingPhotos] = useState<number | null>(null)
 
   useEffect(() => {
     if (!token) { navigate('/login'); return }
@@ -169,6 +171,13 @@ export default function AdminSchedule() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const loadOrderPhotos = async (orderId: number) => {
+    const res = await apiFetch(`/api/admin/photos/${orderId}`)
+    if (res.success && res.data) {
+      setOrderPhotos(prev => ({ ...prev, [orderId]: res.data }))
+    }
+  }
+
   const handleUploadPhoto = async () => {
     if (!showPhotoUpload || !photoFiles || photoFiles.length === 0) return
     setUploadingPhotos(true)
@@ -188,6 +197,7 @@ export default function AdminSchedule() {
       if (data.success) {
         setShowPhotoUpload(null)
         setPhotoFiles(null)
+        loadOrderPhotos(showPhotoUpload)
         alert(`成功上传${data.data.count}张照片！`)
       } else {
         alert(data.error || '上传失败')
@@ -334,9 +344,10 @@ export default function AdminSchedule() {
                             o.status === 'completed' ? 'bg-green-100 text-green-700' :
                             o.status === 'pending' ? 'bg-amber-100 text-amber-700' :
                             o.status === 'refunded' ? 'bg-red-100 text-red-600' :
+                            o.status === 'cancelled' ? 'bg-gray-100 text-gray-500' :
                             'bg-gray-100 text-gray-500'
                           }`}>
-                            {o.status === 'paid' ? '已预约' : o.status === 'completed' ? '已完成' : o.status === 'pending' ? '待支付' : o.status === 'refunded' ? '已退款' : o.status}
+                            {o.status === 'paid' ? '已预约' : o.status === 'completed' ? '已完成' : o.status === 'pending' ? '待支付' : o.status === 'refunded' ? '已退款' : o.status === 'cancelled' ? '已取消' : o.status}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -350,7 +361,14 @@ export default function AdminSchedule() {
                             <button onClick={() => handleOrderAction(o.id, 'cancelled')} className="text-red-500 text-xs">取消</button>
                           )}
                           {o.status === 'completed' && (
-                            <button onClick={() => { setShowPhotoUpload(o.id); setPhotoFiles(null) }} className="text-sky-600 hover:text-sky-700 text-xs ml-2">上传照片</button>
+                            <div className="flex gap-1 items-center">
+                              {orderPhotos[o.id] && orderPhotos[o.id].length > 0 && (
+                                <button onClick={() => setViewingPhotos(o.id)} className="text-green-600 hover:text-green-700 text-xs">
+                                  {orderPhotos[o.id].length}张照片
+                                </button>
+                              )}
+                              <button onClick={() => { setShowPhotoUpload(o.id); setPhotoFiles(null); loadOrderPhotos(o.id) }} className="text-sky-600 hover:text-sky-700 text-xs ml-1">上传照片</button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -442,11 +460,37 @@ export default function AdminSchedule() {
         )}
       </div>
 
+      {viewingPhotos && orderPhotos[viewingPhotos] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setViewingPhotos(null)}>
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 animate-fade-in-up max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-serif-sc text-lg font-bold text-deep mb-4">订单 #{viewingPhotos} 飞行照片</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {orderPhotos[viewingPhotos].map((photo: any) => (
+                <div key={photo.id} className="rounded-xl overflow-hidden">
+                  <img src={photo.url} alt="飞行照片" className="w-full h-32 object-cover" />
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setViewingPhotos(null)} className="w-full mt-4 py-2.5 rounded-xl border border-gray-200 text-rock font-medium hover:bg-gray-50 transition">关闭</button>
+          </div>
+        </div>
+      )}
+
       {showPhotoUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowPhotoUpload(null)}>
           <div className="bg-white rounded-3xl max-w-md w-full p-6 animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-serif-sc text-lg font-bold text-deep mb-4">上传飞行照片</h3>
             <p className="text-sm text-rock mb-4">为订单 #{showPhotoUpload} 上传飞行照片</p>
+            {orderPhotos[showPhotoUpload] && orderPhotos[showPhotoUpload].length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs text-green-600 font-medium mb-2">已上传 {orderPhotos[showPhotoUpload].length} 张照片</p>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {orderPhotos[showPhotoUpload].map((photo: any) => (
+                    <img key={photo.id} src={photo.url} alt="照片" className="w-16 h-16 object-cover rounded-lg flex-shrink-0" />
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-rock mb-2">选择照片文件（支持多选，最多10张）</label>
